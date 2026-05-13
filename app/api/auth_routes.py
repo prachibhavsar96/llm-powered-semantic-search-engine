@@ -61,7 +61,9 @@ def google_login(user_data: GoogleLogin, db: Session = Depends(get_db)):
             settings.GOOGLE_CLIENT_ID,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail="Invalid Google credential.") from exc
+        print("GOOGLE TOKEN ERROR:", exc)
+        print("BACKEND GOOGLE CLIENT ID:", settings.GOOGLE_CLIENT_ID)
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     email = token_data.get("email")
 
