@@ -11,6 +11,7 @@ from app.models.search_history import SearchHistory
 from app.models.user import User
 from app.schemas.search import SearchHistoryResponse, SearchRequest, SearchResponse, SearchResult
 from app.services.embedding_service import generate_embedding
+from app.services.llm_service import generate_answer, rewrite_query
 from app.services.ranking_service import combined_search_score, keyword_overlap_score
 from app.services.search_cache import get_cached_results, set_cached_results
 from app.services.vector_store import query_similar
@@ -254,7 +255,8 @@ def semantic_search(
             cache_hit=True,
         )
 
-    query_embedding = generate_embedding(search_request.query)
+    search_query = rewrite_query(search_request.query)
+    query_embedding = generate_embedding(search_query)
     matches = query_similar(query_embedding, current_user.id, top_k=RETRIEVAL_POOL_SIZE)
     total_documents_scanned = len(matches)
 
@@ -311,7 +313,10 @@ def semantic_search(
         if len(results) == search_request.top_k:
             break
 
-    answer_summary = build_answer_summary(search_request.query, results)
+    answer_summary = generate_answer(search_request.query, results)
+
+    if answer_summary is None:
+        answer_summary = build_answer_summary(search_request.query, results)
 
     if results:
         results[0].answer_summary = answer_summary
