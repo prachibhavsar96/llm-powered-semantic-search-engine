@@ -1,379 +1,233 @@
 # LLM-Powered Q&A Search Engine
 
-A lightweight FastAPI backend for storing documents, generating local embeddings, and running semantic search over uploaded text.
+A full-stack semantic search application that allows users to upload documents and perform intelligent search using local vector embeddings and cosine similarity.
 
-This project is designed as a resume-quality backend system: it uses a clean API structure, PostgreSQL persistence, local machine learning embeddings, document chunking, and beginner-friendly code that is easy to extend.
+Built with FastAPI, PostgreSQL, React, and Sentence Transformers.
+
+## Application Preview
+
+### Login Page
+
+<img width="1625" height="990" alt="image" src="https://github.com/user-attachments/assets/1cc4ab00-1f75-4b4d-a9fa-b76c79f40223" />
+
+---
+
+### Swagger API Documentation
+
+<img width="1882" height="1037" alt="image" src="https://github.com/user-attachments/assets/d4575ea0-7e7c-4979-bd38-c556b321dd50" />
+
+---
+
+### Semantic Search Results
+
+<img width="1676" height="935" alt="image" src="https://github.com/user-attachments/assets/e0deab28-7a95-4e92-8ac5-43e14f484b1d" />
+
+
+---
+
+### Document Upload
+
+<img width="1612" height="843" alt="image" src="https://github.com/user-attachments/assets/0cd94802-3cb3-4efe-9724-28e7c8615ece" />
+
+
+---
 
 ## Features
 
-- FastAPI backend with interactive Swagger docs
-- Simple JWT signup/login authentication
-- User-specific documents and searches
-- PostgreSQL document storage with SQLAlchemy
-- Local embeddings using `sentence-transformers`
-- Semantic search with cosine similarity in Python
-- TXT, PDF, and DOCX upload with automatic text extraction and chunking
-- In-memory caching for repeated search queries
-- Pydantic request and response validation
-- Clean folder structure for future Q&A, ranking, and retrieval features
+- JWT Authentication (Login / Signup)
+- Google OAuth Login
+- Semantic document search using embeddings
+- PDF, DOCX, and TXT upload support
+- User-specific private document storage
+- Cosine similarity ranking
+- Search result summarization
+- In-memory caching for repeated searches
+- Interactive Swagger API documentation
+
+---
 
 ## Tech Stack
 
-- Python
+### Backend
 - FastAPI
 - PostgreSQL
 - SQLAlchemy
-- Pydantic
 - Sentence Transformers
-- Uvicorn
+- Pydantic
+- JWT Authentication
 
-## Project Architecture
+### Frontend
+- React
+- Vite
+- Google Identity Services
 
-The app follows a simple layered backend architecture:
+---
 
-```text
-Client / Swagger UI
-        |
-        v
-FastAPI routes in app/api
-        |
-        v
-Pydantic schemas in app/schemas
-        |
-        v
-Services in app/services
-        |
-        v
-SQLAlchemy models and sessions
-        |
-        v
-PostgreSQL
-```
-
-Search flow:
+## Project Structure
 
 ```text
-User query
-   -> generate query embedding
-   -> load stored document embeddings
-   -> compute cosine similarity in Python
-   -> sort by score
-   -> return top_k matches
+app/
+ ├── api/
+ ├── core/
+ ├── db/
+ ├── models/
+ ├── schemas/
+ ├── services/
+ └── main.py
+
+frontend/
+ ├── src/
+ ├── index.html
+ └── package.json
 ```
 
-Document upload flow:
+---
 
-```text
-.txt file
-   -> read UTF-8 text
-   -> split into paragraph and sentence chunks
-   -> generate embedding for each chunk
-   -> store chunks in PostgreSQL
+## Setup Instructions
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/prachibhavsar96/llm-powered-semantic-search-engine.git
+cd llm-powered-semantic-search-engine
 ```
 
-## Project Tree
+---
 
-```text
-.
-|-- app/
-|   |-- api/
-|   |   |-- document_routes.py
-|   |   |-- search_routes.py
-|   |-- core/
-|   |   |-- config.py
-|   |-- db/
-|   |   |-- database.py
-|   |-- models/
-|   |   |-- document.py
-|   |-- schemas/
-|   |   |-- document.py
-|   |   |-- search.py
-|   |-- services/
-|   |   |-- chunking_service.py
-|   |   |-- embedding_service.py
-|   |   |-- ranking_service.py
-|   |   |-- search_cache.py
-|   |-- main.py
-|-- frontend/
-|   |-- src/
-|   |   |-- main.jsx
-|   |   |-- styles.css
-|   |-- index.html
-|   |-- package.json
-|-- .gitignore
-|-- README.md
-|-- requirements.txt
-```
-
-## Setup
-
-Clone the project and create a virtual environment:
+### 2. Create Virtual Environment
 
 ```bash
 python -m venv venv
 ```
 
-Activate the virtual environment.
+Activate environment:
 
-Windows PowerShell:
+#### Windows
 
-```powershell
+```bash
 .\venv\Scripts\Activate.ps1
 ```
 
-macOS or Linux:
+#### macOS/Linux
 
 ```bash
 source venv/bin/activate
 ```
 
-Install dependencies:
+---
+
+### 3. Install Backend Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## PostgreSQL Setup
+---
 
-Create a PostgreSQL database:
+### 4. Configure PostgreSQL
 
-```text
-llm_qa_search
+Create database:
+
+```sql
+CREATE DATABASE llm_search_engine;
 ```
 
-Create a `.env` file in the project root:
+Create `.env` in project root:
 
-```text
-DATABASE_URL=postgresql://postgres:your_password@localhost:5432/llm_qa_search
-SECRET_KEY=replace-this-with-a-long-random-secret
-GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+```env
+DATABASE_URL=postgresql://postgres:your_password@127.0.0.1:5432/llm_search_engine
+SECRET_KEY=your_secret_key
+GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-The app creates the `documents` table automatically when it starts.
+---
 
-## Run The App
-
-Start the development server:
+### 5. Run Backend
 
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
-Open the interactive API docs:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## Run The Frontend
-
-The React frontend lives in `frontend/` and expects the backend at:
+Backend runs at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-Install frontend dependencies:
+Swagger Docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+### 6. Setup Frontend
 
 ```bash
 cd frontend
 npm install
 ```
 
-To enable Google sign-in, create `frontend/.env`:
+Create `frontend/.env`
 
-```text
-VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+```env
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-Start the Vite development server:
+Run frontend:
 
 ```bash
 npm run dev
 ```
 
-Open the frontend URL printed by Vite, usually:
+Frontend runs at:
 
 ```text
 http://localhost:5173
 ```
 
-## API Usage
+---
 
-### Sign Up
+## Authentication APIs
+
+### Signup
 
 ```http
 POST /auth/signup
 ```
 
-```json
-{
-  "email": "user@example.com",
-  "password": "secret123"
-}
-```
-
-### Log In
+### Login
 
 ```http
 POST /auth/login
 ```
 
-```json
-{
-  "email": "user@example.com",
-  "password": "secret123"
-}
-```
-
-Example response:
-
-```json
-{
-  "access_token": "jwt-token-here",
-  "token_type": "bearer"
-}
-```
-
-Use the token with protected endpoints:
-
-```text
-Authorization: Bearer jwt-token-here
-```
-
 ### Google Login
-
-The frontend uses Google Identity Services to get a Google ID token, then sends it to:
 
 ```http
 POST /auth/google
 ```
 
-The backend verifies the Google credential and returns the same JWT response shape used by normal login.
+---
 
-### Health Check
+## Search Workflow
 
-```http
-GET /health
-```
+1. Upload document
+2. Extract text
+3. Generate embeddings
+4. Store chunks in PostgreSQL
+5. Perform cosine similarity search
+6. Return ranked semantic matches
 
-Example response:
-
-```json
-{
-  "status": "ok",
-  "message": "LLM Q&A Search Engine backend is running"
-}
-```
-
-### Create A Document
-
-```http
-POST /documents
-```
-
-Example request:
-
-```json
-{
-  "title": "Caching Notes",
-  "content": "Caching stores frequently used data so applications can respond faster and reduce repeated work."
-}
-```
-
-Example response:
-
-```json
-{
-  "id": 1,
-  "title": "Caching Notes",
-  "content": "Caching stores frequently used data so applications can respond faster and reduce repeated work.",
-  "created_at": "2026-05-06T12:00:00"
-}
-```
-
-### Upload A Document
-
-```http
-POST /documents/upload
-```
-
-Upload a `.txt`, `.pdf`, or `.docx` file using the Swagger UI at:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-The backend extracts text from the file, chunks long text, generates embeddings, and stores each chunk as a searchable document.
-
-Uploaded documents are linked to the logged-in user.
-
-### Get All Documents
-
-```http
-GET /documents
-```
-
-Returns only the current user's stored documents and uploaded chunks.
-
-### Semantic Search
-
-```http
-POST /search
-```
-
-Example request:
-
-```json
-{
-  "query": "How can caching improve performance?",
-  "top_k": 3
-}
-```
-
-Example response:
-
-```json
-{
-  "results": [
-    {
-      "id": 1,
-      "title": "Caching Notes",
-      "content": "Caching stores frequently used data so applications can respond faster and reduce repeated work.",
-      "created_at": "2026-05-06T12:00:00",
-      "similarity_score": 0.78,
-      "final_score": 0.82,
-      "answer_summary": "Based on the best matching chunk, Caching stores frequently used data so applications can respond faster and reduce repeated work. This relates to your query through terms like caching, performance. The match was ranked highest with a final score of 0.82."
-    }
-  ],
-  "answer_summary": "Caching stores frequently used data so applications can respond faster and reduce repeated work. This answer is based on matching chunks related to caching, performance.",
-  "execution_time_ms": 42.15,
-  "total_documents_scanned": 12,
-  "cache_hit": false
-}
-```
+---
 
 ## Example Search Queries
 
-Try adding documents about APIs, databases, caching, machine learning, and web performance. Then test queries like:
-
-```text
-How does caching reduce latency?
-```
-
-```text
-Why are embeddings useful for search?
-```
-
-```text
-What is the role of a database session?
-```
-
-```text
-How can APIs validate incoming data?
-```
-
-Semantic search can match related meaning even when the exact words are different.
+- How does caching reduce latency?
+- What are vector embeddings?
+- Explain database sessions
+- How does semantic search work?
 
 ## Notes
 
@@ -393,3 +247,10 @@ Semantic search can match related meaning even when the exact words are differen
 - Add a Q&A endpoint that uses top search results as context
 - Add migrations with Alembic
 - Add production-ready vector indexing later if needed
+
+## Contributors
+
+- Prachi Bhavsar
+- Om Shah
+
+
