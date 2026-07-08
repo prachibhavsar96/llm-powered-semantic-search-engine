@@ -1,4 +1,5 @@
 import json
+import threading
 
 # This model runs locally on your machine.
 # It is small, popular, and a good beginner-friendly choice for semantic search.
@@ -7,6 +8,7 @@ MODEL_NAME = "all-MiniLM-L6-v2"
 # This starts as None and gets loaded the first time we need embeddings.
 # Keeping it global lets us reuse the model instead of reloading it every request.
 embedding_model = None
+_embedding_model_lock = threading.Lock()
 
 
 def get_embedding_model():
@@ -15,21 +17,28 @@ def get_embedding_model():
 
     The first call may take a little while because the model may need to be
     downloaded. Later calls are much faster.
+
+    Uses double-checked locking so concurrent requests racing to initialize
+    the model don't each start their own SentenceTransformer construction
+    at once (which raised "Cannot copy out of meta tensor; no data!" under
+    concurrent load).
     """
     global embedding_model
 
     if embedding_model is None:
-        # Import here so normal app startup stays quick.
-        from sentence_transformers import SentenceTransformer
+        with _embedding_model_lock:
+            if embedding_model is None:
+                # Import here so normal app startup stays quick.
+                from sentence_transformers import SentenceTransformer
 
-        # Force a plain CPU load instead of newer transformers versions'
-        # meta-device ("fast") init, which can raise "Cannot copy out of
-        # meta tensor; no data!" on some torch/transformers/accelerate combos.
-        embedding_model = SentenceTransformer(
-            MODEL_NAME,
-            device="cpu",
-            model_kwargs={"low_cpu_mem_usage": False},
-        )
+                # Force a plain CPU load instead of newer transformers versions'
+                # meta-device ("fast") init, which can raise "Cannot copy out of
+                # meta tensor; no data!" on some torch/transformers/accelerate combos.
+                embedding_model = SentenceTransformer(
+                    MODEL_NAME,
+                    device="cpu",
+                    model_kwargs={"low_cpu_mem_usage": False},
+                )
 
     return embedding_model
 
