@@ -14,6 +14,7 @@ from app.services.document_extraction_service import (
 )
 from app.services.embedding_service import generate_embedding, serialize_embedding
 from app.services.search_cache import clear_search_cache
+from app.services.vector_store import upsert_document
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -27,10 +28,11 @@ def create_document(
     """
     Create a new document and save it in PostgreSQL.
     """
+    embedding = generate_embedding(document.content)
     new_document = Document(
         title=document.title,
         content=document.content,
-        embedding=serialize_embedding(generate_embedding(document.content)),
+        embedding=serialize_embedding(embedding),
         user_id=current_user.id,
     )
 
@@ -42,6 +44,19 @@ def create_document(
 
     # Refresh loads generated values, such as id and created_at.
     db.refresh(new_document)
+
+    upsert_document(
+        document_id=new_document.id,
+        embedding=embedding,
+        metadata={
+            "user_id": current_user.id,
+            "title": new_document.title,
+            "content": new_document.content,
+            "source_filename": new_document.source_filename,
+            "chunk_index": new_document.chunk_index,
+            "created_at": new_document.created_at.isoformat(),
+        },
+    )
     clear_search_cache()
 
     return new_document
@@ -81,13 +96,16 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="File is empty.")
 
     saved_documents = []
+    chunk_embeddings = []
 
     for index, chunk in enumerate(chunks):
+        embedding = generate_embedding(chunk)
+        chunk_embeddings.append(embedding)
         saved_documents.append(
             Document(
                 title=file.filename,
                 content=chunk,
-                embedding=serialize_embedding(generate_embedding(chunk)),
+                embedding=serialize_embedding(embedding),
                 source_filename=file.filename,
                 chunk_index=index,
                 user_id=current_user.id,
@@ -97,8 +115,20 @@ async def upload_document(
     db.add_all(saved_documents)
     db.commit()
 
-    for document in saved_documents:
+    for document, embedding in zip(saved_documents, chunk_embeddings):
         db.refresh(document)
+        upsert_document(
+            document_id=document.id,
+            embedding=embedding,
+            metadata={
+                "user_id": current_user.id,
+                "title": document.title,
+                "content": document.content,
+                "source_filename": document.source_filename,
+                "chunk_index": document.chunk_index,
+                "created_at": document.created_at.isoformat(),
+            },
+        )
 
     clear_search_cache()
     return saved_documents

@@ -1,5 +1,3 @@
-import json
-import math
 import re
 from time import perf_counter
 
@@ -9,19 +7,20 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
 from app.db.database import get_db
-from app.models.document import Document
 from app.models.search_history import SearchHistory
 from app.models.user import User
 from app.schemas.search import SearchHistoryResponse, SearchRequest, SearchResponse, SearchResult
 from app.services.embedding_service import generate_embedding
 from app.services.ranking_service import combined_search_score, keyword_overlap_score
 from app.services.search_cache import get_cached_results, set_cached_results
+from app.services.vector_store import query_similar
 
 router = APIRouter(tags=["Search"])
 
 MIN_SIMILARITY_SCORE = 0.25
 MIN_FINAL_SCORE = 0.30
 NEAR_DUPLICATE_THRESHOLD = 0.85
+RETRIEVAL_POOL_SIZE = 100
 NO_RELEVANT_INFO_MESSAGE = "I could not find enough relevant information in the uploaded documents."
 STOP_WORDS = {
     "a",
@@ -51,36 +50,6 @@ STOP_WORDS = {
     "why",
     "with",
 }
-
-
-def parse_stored_embedding(embedding) -> list[float]:
-    """
-    Convert the stored embedding into a normal Python list.
-
-    Depending on the database setup, the value may already be a list or it may
-    be JSON text.
-    """
-    if isinstance(embedding, str):
-        return json.loads(embedding)
-
-    if hasattr(embedding, "tolist"):
-        return embedding.tolist()
-
-    return list(embedding)
-
-
-def cosine_similarity(first_embedding: list[float], second_embedding: list[float]) -> float:
-    """
-    Compare two embeddings in Python.
-    """
-    dot_product = sum(a * b for a, b in zip(first_embedding, second_embedding))
-    first_length = math.sqrt(sum(a * a for a in first_embedding))
-    second_length = math.sqrt(sum(b * b for b in second_embedding))
-
-    if first_length == 0 or second_length == 0:
-        return 0.0
-
-    return dot_product / (first_length * second_length)
 
 
 def content_words(text: str) -> set[str]:
@@ -286,40 +255,38 @@ def semantic_search(
         )
 
     query_embedding = generate_embedding(search_request.query)
-    documents = (
-        db.query(Document)
-        .filter(Document.user_id == current_user.id, Document.embedding.isnot(None))
-        .all()
-    )
-    total_documents_scanned = len(documents)
+    matches = query_similar(query_embedding, current_user.id, top_k=RETRIEVAL_POOL_SIZE)
+    total_documents_scanned = len(matches)
 
     candidates = []
-    for document in documents:
-        if is_generic_chunk(document.content):
+    for match in matches:
+        metadata = match.metadata or {}
+        content = metadata.get("content", "")
+
+        if is_generic_chunk(content):
             continue
 
-        document_embedding = parse_stored_embedding(document.embedding)
-        cosine_score = cosine_similarity(query_embedding, document_embedding)
+        cosine_score = match.score
 
         if cosine_score < MIN_SIMILARITY_SCORE:
             continue
 
         final_score = combined_search_score(
             search_request.query,
-            document.content,
+            content,
             cosine_score,
         )
 
         candidates.append(
             SearchResult(
-                id=document.id,
-                title=document.title,
-                content=document.content,
-                created_at=document.created_at,
+                id=int(match.id),
+                title=metadata.get("title", ""),
+                content=content,
+                created_at=metadata.get("created_at"),
                 similarity_score=cosine_score,
                 final_score=final_score,
-                source_filename=document.source_filename,
-                chunk_index=document.chunk_index,
+                source_filename=metadata.get("source_filename"),
+                chunk_index=metadata.get("chunk_index"),
             )
         )
 
