@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -12,18 +13,27 @@ from app.schemas.auth import GoogleLogin, TokenResponse, UserCreate, UserLogin, 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
+def normalize_email(email: str) -> str:
+    """
+    Email lookups and storage must be case-insensitive, since users don't
+    reliably type or autofill their email with the same casing every time.
+    """
+    return email.strip().lower()
+
+
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Create a new user account.
     """
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    normalized_email = normalize_email(user_data.email)
+    existing_user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
 
     if existing_user:
         raise HTTPException(status_code=400, detail="Email is already registered.")
 
     user = User(
-        email=user_data.email,
+        email=normalized_email,
         hashed_password=hash_password(user_data.password),
     )
     db.add(user)
@@ -38,7 +48,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """
     Log in and receive a JWT access token.
     """
-    user = db.query(User).filter(User.email == user_data.email).first()
+    normalized_email = normalize_email(user_data.email)
+    user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
 
     if not user or not user.hashed_password or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
@@ -68,10 +79,11 @@ def google_login(user_data: GoogleLogin, db: Session = Depends(get_db)):
     if not email:
         raise HTTPException(status_code=401, detail="Google account email is missing.")
 
-    user = db.query(User).filter(User.email == email).first()
+    normalized_email = normalize_email(email)
+    user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
 
     if not user:
-        user = User(email=email, hashed_password=None)
+        user = User(email=normalized_email, hashed_password=None)
         db.add(user)
         db.commit()
         db.refresh(user)
