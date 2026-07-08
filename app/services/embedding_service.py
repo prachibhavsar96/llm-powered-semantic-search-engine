@@ -22,7 +22,14 @@ def get_embedding_model():
         # Import here so normal app startup stays quick.
         from sentence_transformers import SentenceTransformer
 
-        embedding_model = SentenceTransformer(MODEL_NAME)
+        # Force a plain CPU load instead of newer transformers versions'
+        # meta-device ("fast") init, which can raise "Cannot copy out of
+        # meta tensor; no data!" on some torch/transformers/accelerate combos.
+        embedding_model = SentenceTransformer(
+            MODEL_NAME,
+            device="cpu",
+            model_kwargs={"low_cpu_mem_usage": False},
+        )
 
     return embedding_model
 
